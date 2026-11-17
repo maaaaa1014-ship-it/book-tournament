@@ -311,8 +311,8 @@ function urlToCover(url){
 var lastResults=[];
 function withTimeout(p,ms){return Promise.race([p,new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'))},ms)})])}
 function ndlThumb(isbn){return /^97[89]4/.test(isbn)?'https://ndlsearch.ndl.go.jp/thumbnail/'+isbn+'.jpg':''}
-function fromGoogle(q){
-  return withTimeout(fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=20&printType=books'),8000)
+function fromGoogle(q,ja){
+  return withTimeout(fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=20&printType=books'+(ja?'&langRestrict=ja':'')),8000)
     .then(function(r){if(!r.ok)throw new Error('google '+r.status);return r.json()})
     .then(function(j){
       return (j.items||[]).map(function(it){
@@ -346,18 +346,33 @@ function fromNDL(q){
       });
     });
 }
+function withOpenBD(groups){
+  var all=[];groups.forEach(function(g){g.isbns.forEach(function(i){if(/^9784/.test(i)&&all.indexOf(i)<0)all.push(i)})});
+  if(!all.length)return Promise.resolve();
+  return withTimeout(fetch('https://api.openbd.jp/v1/get?isbn='+all.slice(0,60).join(',')),6000)
+    .then(function(r){if(!r.ok)throw 0;return r.json()})
+    .then(function(arr){
+      var map={};(arr||[]).forEach(function(d){if(d&&d.summary&&d.summary.cover)map[d.summary.isbn]={u:d.summary.cover,pub:d.summary.publisher||''}});
+      groups.forEach(function(g){var add=[];g.isbns.forEach(function(i){var c=map[i];if(c&&!g._u[c.u]){g._u[c.u]=1;add.push(c)}});g.covers=add.concat(g.covers)});
+    }).catch(function(){});
+}
 function searchBooks(q){
   var jp=/[぀-ヿ㐀-鿿]/.test(q);
-  var sources=jp?[fromGoogle(q),fromNDL(q),fromOpenLibrary(q)]:[fromGoogle(q),fromOpenLibrary(q),fromNDL(q)];
+  var names=jp?['Google Books（日本語）','Google Books','国会図書館','Open Library']:['Google Books','Open Library','国会図書館'];
+  var sources=jp?[fromGoogle(q,true),fromGoogle(q),fromNDL(q),fromOpenLibrary(q)]:[fromGoogle(q),fromOpenLibrary(q),fromNDL(q)];
   return Promise.all(sources.map(function(p){return p.then(function(v){return {ok:true,v:v}},function(e){return {ok:false,e:e}})}))
     .then(function(rs){
       if(!rs.some(function(r){return r.ok}))throw rs.map(function(r){return r.e&&r.e.message}).join(', ');
       var seen={},out=[];
       rs.forEach(function(r){if(r.ok)r.v.forEach(function(b){if(!b.title)return;var k=normT(b.title.split(/[:：]/)[0])+'|'+normA(b.author);
-        var g=seen[k];if(!g){g=seen[k]={title:b.title,author:b.author,covers:[],_u:{}};out.push(g)}
+        var g=seen[k];if(!g){g=seen[k]={title:b.title,author:b.author,covers:[],_u:{},isbns:[]};out.push(g)}
+        if(b.isbn&&g.isbns.indexOf(b.isbn)<0)g.isbns.push(b.isbn);
         if(b.cover&&!g._u[b.cover]){g._u[b.cover]=1;g.covers.push({u:b.cover,pub:b.pub||''})}})});
-      out.sort(function(a,b){return (b.covers.length?1:0)-(a.covers.length?1:0)});
-      return out.slice(0,10);
+      if(jp){var hasJ=function(g){return /[\u3040-\u30ff\u3400-\u9fff]/.test(g.title)};out=out.filter(hasJ).concat(out.filter(function(g){return !hasJ(g)}))}
+      out=out.slice(0,10);
+      out.failed=rs.map(function(r,i){return r.ok?null:names[i]}).filter(Boolean);
+      return withOpenBD(out).then(function(){
+        var f=out.failed;out.sort(function(a,b){return (b.covers.length?1:0)-(a.covers.length?1:0)});out.failed=f;return out});
     });
 }
 function normT(t){return String(t||'').toLowerCase().replace(/[\s:：・\-‐–—'’"“”!！?？.,、。()（）\[\]【】]/g,'')}
@@ -409,7 +424,7 @@ function loadCandidates(title,author,first,kw){
   moreCovers(title,author,kw).then(function(more){if(draft.candTok!==tok)return;addCands(more,!!kw);draft.candLoading=false;renderCovers();
     if(kw){var lk=kw.toLowerCase(),n=draft.cands.filter(function(u){return String((draft.pub||{})[u]||'').toLowerCase().indexOf(lk)>=0}).length;toast(n>0?'「'+kw+'」の表紙'+n+'件を先頭に並べました':'「'+kw+'」の表紙は見つかりませんでした。写真・スクショからも入れられます');var st=document.querySelector('.cstrip');if(st)st.scrollLeft=0}});
 }
-function shortPub(p){p=String(p||'');var m=/penguin|vintage|oxford|signet|bantam|wordsworth|everyman|modern library|harper|scholastic|puffin|新潮|岩波|角川|講談社|光文社|早川|集英社|文藝春秋/i.exec(p);return m?m[0]:''}
+function shortPub(p){p=String(p||'');var m=/penguin|vintage|oxford|signet|bantam|wordsworth|everyman|modern library|harper|scholastic|puffin|新潮|岩波|角川|KADOKAWA|講談社|光文社|早川|集英社|文藝春秋|小学館|河出|筑摩|中央公論|幻冬舎|東京創元|ダイヤモンド|日経|東洋経済|PHP|サンマーク/i.exec(p);return m?m[0]:''}
 function renderCovers(){
   var el=$('#covers');if(!el)return;
   var c=draft.cands||[];
@@ -430,7 +445,8 @@ function renderCovers(){
 var searchTok=0;
 function renderResults(){
   var res=$('#results');if(!res)return;
-  res.innerHTML='<p class="note">表紙をタップすると、その表紙で入ります。</p>'+lastResults.map(function(g,gi){
+  var fl=lastResults.failed||[];
+  res.innerHTML='<p class="note">表紙をタップすると、その表紙で入ります。'+(fl.length?'<br><small>（'+esc(fl.join('・'))+' に接続できませんでした）</small>':'')+'</p>'+lastResults.map(function(g,gi){
     var tiles=g.covers.map(function(c,ci){var sp=shortPub(c.pub);return '<button type="button" class="rc" data-act="choose" data-g="'+gi+'" data-c="'+ci+'"'+(c.pub?' title="'+esc(c.pub)+'"':'')+'><img src="'+esc(c.u)+'" alt="" loading="lazy">'+(sp?'<span class="tag">'+esc(sp)+'</span>':'')+'</button>'}).join('');
     tiles+='<button type="button" class="rc" data-act="choose" data-g="'+gi+'" data-c="-1">'+coverHTML(g)+'<span class="tag">自動</span></button>';
     return '<div class="rgroup"><div class="rhead"><b>'+esc(g.title)+'</b>'+(g.author?'<i>'+esc(g.author)+'</i>':'')+'<small>'+(g.covers.length?g.covers.length+'種類':'')+'</small></div><div class="rgrid">'+tiles+'</div>'+(g.loading?'<span class="rmore">ほかの版の表紙を探しています…</span>':'')+'</div>';
@@ -445,7 +461,7 @@ function doSearch(){
     if(tok!==searchTok)return;
     lastResults=groups;
     if(!groups.length){res.innerHTML='<p class="note">見つかりませんでした。表記を変えるか、下のフォームから手入力してください。</p>';return}
-    groups.forEach(function(g,i){g.loading=i<4});
+    var fl=groups.failed;groups.forEach(function(g,i){g.loading=i<4});groups.failed=fl;
     renderResults();
     groups.slice(0,4).forEach(function(g){
       moreCovers(g.title,g.author).then(function(more){
@@ -495,7 +511,7 @@ function render(){
     '<p class="fine">データはこのブラウザの中だけに保存され、サーバーには送られません。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存してください。</p>'+
     '<div class="row"><button class="ghost" data-act="backup">バックアップを保存</button><label class="ghost" for="f-restore">バックアップから復元<input type="file" id="f-restore" accept="application/json,.json" hidden></label></div>'+
     '<div class="row">'+(resetArm?'<span class="fine">'+year+'年の本と対戦結果をすべて消します。</span><button class="danger" data-act="reset-yes">すべて消す</button><button class="ghost" data-act="reset-no">やめる</button>':'<button class="ghost" data-act="reset">'+year+'年を最初からやり直す</button>')+'</div>'+
-    '<p class="fine">書誌情報と表紙: Google Books、国立国会図書館サーチ、Open Library。表紙の画像は各出版社に帰属します。</p></section></div>';
+    '<p class="fine">書誌情報と表紙: Google Books、国立国会図書館サーチ、openBD、Open Library。表紙の画像は各出版社に帰属します。</p></section></div>';
   $('#app').innerHTML=o;
 }
 function flash(n){[n,n+'-bye'].forEach(function(k){var el=document.querySelector('[data-n="'+k+'"]');if(el)el.classList.add('just')})}
