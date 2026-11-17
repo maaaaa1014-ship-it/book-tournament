@@ -653,7 +653,7 @@ function shareText(){
   return year+'年の読書トーナメント、途中経過です。\n'+HASHTAG;
 }
 function openShare(){
-  openSheet(head('SHARE','画像にしてシェア')+'<div class="shot" id="shot"><p class="note">画像を作っています…</p></div><div class="row" id="sharerow" hidden></div><p class="note" id="sharenote"></p>');
+  openSheet(head('SHARE','画像にしてシェア')+'<div class="shot" id="shot"><p class="note">画像を作っています…</p></div><div class="row" id="sharerow" hidden></div><p class="note" id="sharenote"></p><div class="donebar"><button class="done" data-act="close">閉じる</button></div>');
   makeImage().then(function(blob){
     if(!$('#shot'))return;
     if(!blob)throw 0;
