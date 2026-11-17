@@ -110,6 +110,9 @@ button,select{font:inherit;color:inherit}
 .sh-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .eyebrow{margin:0;font:500 11px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .sh-head h2{margin:2px 0 0;font:700 20px/1.35 var(--f-body);text-wrap:balance}
+.sh-head{position:sticky;top:-18px;z-index:2;background:var(--card);margin-top:-18px;padding-top:18px;padding-bottom:6px}
+.donebar{position:sticky;bottom:calc(-22px - env(safe-area-inset-bottom,0px));z-index:2;background:var(--card);margin-bottom:calc(-22px - env(safe-area-inset-bottom,0px));padding-top:12px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.done{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:8px;border:none;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;cursor:pointer}
 .x{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:20px;line-height:1}
 .hint,.note{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
 .empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:10px;font-size:14px;color:var(--muted);text-align:center}
@@ -158,7 +161,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transp
 .shot{display:flex;justify-content:center;background:color-mix(in srgb,var(--line) 18%,transparent);border-radius:10px;padding:10px;min-height:120px;align-items:center}
 .shot img{max-height:56vh;width:auto;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.15)}
 
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:40;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:99px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
+.toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:40;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:99px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
 
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -408,11 +411,13 @@ function openMonth(m){
     '<label for="f-title">タイトル<input type="text" id="f-title" required></label><label for="f-author">著者（なくてもOK）<input type="text" id="f-author"></label></div></div>'+
     '<div class="row"><label class="ghost" for="f-file">写真・スクショで表紙を入れる<input type="file" accept="image/*" id="f-file" hidden></label><button type="button" class="ghost" data-act="clearcover" id="clearcover" hidden>表紙を外す</button></div>'+
     '<p class="note">検索結果をタップすると、タイトル・著者・表紙が入ります。表紙がない本はタイトル入りのカバーを自動で作ります。</p>'+
-    '<button class="primary" type="submit" id="addbtn">'+(m+1)+'月に追加</button></form></div>');
+    '<button class="primary" type="submit" id="addbtn">'+(m+1)+'月に追加</button></form></div>'+
+    '<div class="donebar" id="donebar" hidden><button class="done" data-act="close" id="donebtn">完了</button></div>');
   curM=m;renderList();updatePrev();
 }
 function renderList(){
   var mo=state.months[curM],c=monthChamp(curM),el=$('#list');if(!el)return;
+  var db=$('#donebar');if(db){db.hidden=!mo.books.length;$('#donebtn').textContent=mo.books.length>1&&!c?'ベストを選ばずに閉じる':'完了'}
   if(!mo.books.length){el.innerHTML='<p class="empty">まだ本がありません。下で検索して追加してください。</p>';return}
   el.innerHTML='<p class="hint">'+(mo.books.length>1?'今月のベストを1冊選んでください。':'1冊だけなら、その本が今月のベストになります。')+'</p><ul class="books">'+
     mo.books.map(function(b){var on=b.id===c;return '<li class="'+(on?'is-best':'')+'"><label class="bk"><input type="radio" name="best" value="'+b.id+'"'+(on?' checked':'')+'><span class="th">'+coverHTML(b)+'</span><span class="meta"><b>'+esc(b.title)+'</b>'+(b.author?'<i>'+esc(b.author)+'</i>':'')+(on?'<em>今月のベスト</em>':'')+'</span></label><button type="button" class="del'+(pendingDel===b.id?' arm':'')+'" data-act="del" data-id="'+b.id+'">'+(pendingDel===b.id?'削除する':'削除')+'</button></li>'}).join('')+'</ul>';
