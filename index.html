@@ -141,7 +141,18 @@ input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transp
 .prev .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);text-align:center;padding:4px}
 .fields{min-width:0;display:flex;flex-direction:column;gap:10px}
 .fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.results{display:flex;flex-direction:column;gap:18px}
+.rgroup{display:flex;flex-direction:column;gap:8px}
+.rhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.rhead b{font:700 14px/1.4 var(--f-body);overflow-wrap:anywhere}
+.rhead i{font-style:normal;font-size:12px;color:var(--muted)}
+.rhead small{font:500 11px/1 var(--f-mono);color:var(--muted)}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px}
+.rc{position:relative;container-type:inline-size;aspect-ratio:2/3;padding:0;border:none;border-radius:3px;overflow:hidden;cursor:pointer;background:color-mix(in srgb,var(--line) 25%,transparent)}
+.rc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none}
+.rc .tag{position:absolute;left:0;right:0;bottom:0;z-index:2;background:rgb(0 0 0/.55);color:#fff;font-size:10px;text-align:center;padding:2px 0}
+.rc:active{transform:scale(.96)}
+.rmore{font-size:12px;color:var(--muted)}
 .results:empty{display:none}
 .results>p{grid-column:1/-1}
 .res{display:flex;flex-direction:column;gap:4px;padding:0;border:none;background:transparent;text-align:left;cursor:pointer;min-width:0}
@@ -267,8 +278,10 @@ function coverHTML(b){
   if(!b)return '';
   return '<span class="gen" style="--g:hsl('+hue(b.title)+' 42% 35%)"><b>'+esc(b.title)+'</b><i>'+esc(b.author||'')+'</i></span>'+(b.cover?'<img src="'+esc(b.cover)+'" alt="" loading="lazy">':'');
 }
-document.addEventListener('error',function(e){var t=e.target;if(!(t&&t.tagName==='IMG'&&t.closest))return;var tile=t.closest('.ctile');if(tile){var u=tile.dataset.u;if(draft.cands)draft.cands=draft.cands.filter(function(x){return x!==u});tile.remove();return}if(t.closest('#app,.scrim')&&!t.closest('.shot'))t.remove()},true);
-document.addEventListener('load',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.ctile')&&(t.naturalWidth<20||t.naturalHeight<20)){var tile=t.closest('.ctile');if(draft.cands)draft.cands=draft.cands.filter(function(x){return x!==tile.dataset.u});tile.remove()}},true);
+document.addEventListener('error',function(e){var t=e.target;if(!(t&&t.tagName==='IMG'&&t.closest))return;var rc=t.closest('.rc');if(rc){var g=lastResults[+rc.dataset.g],ci=+rc.dataset.c;if(g&&g.covers[ci]){g.covers[ci].bad=1}rc.remove();return}
+  var tile=t.closest('.ctile');if(tile){var u=tile.dataset.u;if(draft.cands)draft.cands=draft.cands.filter(function(x){return x!==u});tile.remove();return}if(t.closest('#app,.scrim')&&!t.closest('.shot'))t.remove()},true);
+document.addEventListener('load',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.rc')&&(t.naturalWidth<20||t.naturalHeight<20)){var rc=t.closest('.rc'),g=lastResults[+rc.dataset.g];if(g&&g.covers[+rc.dataset.c])g.covers[+rc.dataset.c].bad=1;rc.remove();return}
+  if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.ctile')&&(t.naturalWidth<20||t.naturalHeight<20)){var tile=t.closest('.ctile');if(draft.cands)draft.cands=draft.cands.filter(function(x){return x!==tile.dataset.u});tile.remove()}},true);
 function blobToCover(blob){
   return new Promise(function(res,rej){
     var url=URL.createObjectURL(blob),img=new Image();
@@ -306,7 +319,7 @@ function fromGoogle(q){
         var v=it.volumeInfo||{},il=v.imageLinks||{},isbn='';
         (v.industryIdentifiers||[]).forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
         var cover=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','')||ndlThumb(isbn);
-        return {title:(v.title||'')+(v.subtitle?' '+v.subtitle:''),author:(v.authors||[]).join(', '),cover:cover,isbn:isbn};
+        return {title:(v.title||'')+(v.subtitle?' '+v.subtitle:''),author:(v.authors||[]).join(', '),cover:cover,isbn:isbn,pub:v.publisher||''};
       });
     });
 }
@@ -329,7 +342,7 @@ function fromNDL(q){
         var title=(it.getElementsByTagName('title')[0]||{}).textContent||'',author='',isbn='';
         var cr=it.getElementsByTagNameNS('*','creator')[0];if(cr)author=cr.textContent.replace(/\s*著$/,'');
         Array.prototype.forEach.call(it.getElementsByTagNameNS('*','identifier'),function(el){var v=el.textContent.replace(/-/g,'');if(/^97[89]\d{10}$/.test(v))isbn=v});
-        return {title:title,author:author,cover:ndlThumb(isbn),isbn:isbn};
+        var pb=it.getElementsByTagNameNS('*','publisher')[0];return {title:title,author:author,cover:ndlThumb(isbn),isbn:isbn,pub:pb?pb.textContent:''};
       });
     });
 }
@@ -340,9 +353,11 @@ function searchBooks(q){
     .then(function(rs){
       if(!rs.some(function(r){return r.ok}))throw rs.map(function(r){return r.e&&r.e.message}).join(', ');
       var seen={},out=[];
-      rs.forEach(function(r){if(r.ok)r.v.forEach(function(b){if(!b.title)return;var k=normT(b.title)+'|'+normA(b.author);if(!seen[k]){b.alts=[];seen[k]=b;out.push(b)}else{var e=seen[k];if(b.cover)e.alts.push(b.cover);if(!e.cover&&b.cover)e.cover=b.cover}})});
-      out.sort(function(a,b){return (b.cover?1:0)-(a.cover?1:0)});
-      return out.slice(0,24);
+      rs.forEach(function(r){if(r.ok)r.v.forEach(function(b){if(!b.title)return;var k=normT(b.title.split(/[:：]/)[0])+'|'+normA(b.author);
+        var g=seen[k];if(!g){g=seen[k]={title:b.title,author:b.author,covers:[],_u:{}};out.push(g)}
+        if(b.cover&&!g._u[b.cover]){g._u[b.cover]=1;g.covers.push({u:b.cover,pub:b.pub||''})}})});
+      out.sort(function(a,b){return (b.covers.length?1:0)-(a.covers.length?1:0)});
+      return out.slice(0,10);
     });
 }
 function normT(t){return String(t||'').toLowerCase().replace(/[\s:：・\-‐–—'’"“”!！?？.,、。()（）\[\]【】]/g,'')}
@@ -412,13 +427,33 @@ function renderCovers(){
   el.innerHTML=h;
   if(focused){var k=$('#f-kw');k.focus();k.setSelectionRange(k.value.length,k.value.length)}
 }
+var searchTok=0;
+function renderResults(){
+  var res=$('#results');if(!res)return;
+  res.innerHTML='<p class="note">表紙をタップすると、その表紙で入ります。</p>'+lastResults.map(function(g,gi){
+    var tiles=g.covers.map(function(c,ci){var sp=shortPub(c.pub);return '<button type="button" class="rc" data-act="choose" data-g="'+gi+'" data-c="'+ci+'"'+(c.pub?' title="'+esc(c.pub)+'"':'')+'><img src="'+esc(c.u)+'" alt="" loading="lazy">'+(sp?'<span class="tag">'+esc(sp)+'</span>':'')+'</button>'}).join('');
+    tiles+='<button type="button" class="rc" data-act="choose" data-g="'+gi+'" data-c="-1">'+coverHTML(g)+'<span class="tag">自動</span></button>';
+    return '<div class="rgroup"><div class="rhead"><b>'+esc(g.title)+'</b>'+(g.author?'<i>'+esc(g.author)+'</i>':'')+'<small>'+(g.covers.length?g.covers.length+'種類':'')+'</small></div><div class="rgrid">'+tiles+'</div>'+(g.loading?'<span class="rmore">ほかの版の表紙を探しています…</span>':'')+'</div>';
+  }).join('');
+}
 function doSearch(){
   var q=$('#f-q').value.trim(),res=$('#results');
   if(!q){res.innerHTML='<p class="note">タイトルや著者名を入れてください。</p>';return}
   res.innerHTML='<p class="note">検索中…</p>';
-  searchBooks(q).then(function(items){
-    lastResults=items;
-    res.innerHTML=items.length?items.map(function(b,i){return '<button type="button" class="res" data-act="choose" data-i="'+i+'"><span class="th">'+coverHTML(b)+'</span><b>'+esc(b.title)+'</b><i>'+esc(b.author)+'</i></button>'}).join(''):'<p class="note">見つかりませんでした。表記を変えるか、下のフォームから手入力してください。</p>';
+  var tok=searchTok=Math.random();
+  searchBooks(q).then(function(groups){
+    if(tok!==searchTok)return;
+    lastResults=groups;
+    if(!groups.length){res.innerHTML='<p class="note">見つかりませんでした。表記を変えるか、下のフォームから手入力してください。</p>';return}
+    groups.forEach(function(g,i){g.loading=i<4});
+    renderResults();
+    groups.slice(0,4).forEach(function(g){
+      moreCovers(g.title,g.author).then(function(more){
+        if(tok!==searchTok)return;
+        more.forEach(function(c){if(!g._u[c.u]){g._u[c.u]=1;g.covers.push(c)}});
+        if(g.covers.length>40)g.covers.length=40;g.loading=false;renderResults();
+      });
+    });
   }).catch(function(e){res.innerHTML='<p class="note">検索できませんでした。少し待ってからもう一度試すか、手入力で追加してください。<br><small>('+esc(String(e))+')</small></p>'});
 }
 
@@ -668,9 +703,11 @@ document.addEventListener('click',function(e){
     var id=t.dataset.id;if(pendingDel!==id){pendingDel=id;renderList();return}
     var mo=state.months[curM];mo.books=mo.books.filter(function(b){return b.id!==id});if(mo.best===id)mo.best=null;pendingDel=null;commit();renderList();
   }
-  else if(a==='choose'){var r=lastResults[+t.dataset.i];if(!r)return;$('#f-title').value=r.title;$('#f-author').value=r.author;draft.cover='';draft.custom='';
-    if(r.cover){draft.sel=r.cover;setCoverFromURL(r.cover)}else{draft.sel='auto';draft.token=null;draft.loading=false;$('#addbtn').disabled=false;updatePrev()}
-    loadCandidates(r.title,r.author,[r.cover].concat(r.alts||[]));$('#addform').scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(a==='choose'){var g=lastResults[+t.dataset.g];if(!g)return;var ci=+t.dataset.c,cv=ci>=0?g.covers[ci]:null;
+    $('#f-title').value=g.title;$('#f-author').value=g.author;var keep=draft.editId?{editId:draft.editId}:{};draft=keep;draft.cover='';draft.custom='';
+    var good=g.covers.filter(function(c){return !c.bad});draft.cands=[];draft.pub={};addCands(good);draft.candLoading=false;
+    if(cv){draft.sel=cv.u;setCoverFromURL(cv.u)}else{draft.sel='auto';draft.loading=false;$('#addbtn').disabled=false;updatePrev()}
+    renderCovers();$('#addform').scrollIntoView({behavior:'smooth',block:'start'})}
   else if(a==='coversearch'){var kw=($('#f-kw')||{}).value.trim(),ti=$('#f-title').value.trim();if(!ti){toast('先にタイトルを入れてください');return}if(!kw){$('#f-kw').focus();return}loadCandidates(ti,$('#f-author').value.trim(),null,kw)}
   else if(a==='pickcover'){var u=t.dataset.u;draft.sel=u;
     if(u==='auto'){draft.token=null;draft.loading=false;draft.cover='';$('#addbtn').disabled=false;updatePrev()}
