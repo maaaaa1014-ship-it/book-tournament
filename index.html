@@ -598,8 +598,8 @@ function openShare(){
     var canFile=!!(navigator.canShare&&navigator.canShare({files:[shareFile]}));
     var row=$('#sharerow');row.hidden=false;
     row.innerHTML=(canFile?'<button class="primary" data-act="share-native">シェアする（Xを選択）</button>':'<button class="primary" data-act="share-x">保存してXに投稿</button>')+
-      '<a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>'+(canFile?'<button class="ghost" data-act="share-x">Xの投稿画面を開く</button>':'');
-    $('#sharenote').textContent=canFile?'シェア先で X を選ぶと、画像つきで投稿画面が開きます。':'画像を保存したあと X の投稿画面が開くので、保存した画像を添付して投稿してください。';
+      (canFile?'<button class="ghost" data-act="save-photo">写真に保存</button><a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a>':'<a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>')+(canFile?'<button class="ghost" data-act="share-x">Xの投稿画面を開く</button>':'');
+    $('#sharenote').textContent=canFile?'シェア先で X を選ぶと、画像つきで投稿画面が開きます。「写真に保存」を押したら、メニューの「画像を保存」で写真アプリに入ります。画像を長押しして「"写真"に追加」でも保存できます。':'画像を保存したあと X の投稿画面が開くので、保存した画像を添付して投稿してください。';
   }).catch(function(){var s=$('#shot');if(s)s.innerHTML='<p class="note">画像を作れませんでした。もう一度お試しください。</p>'});
 }
 function openXIntent(){
@@ -654,6 +654,7 @@ document.addEventListener('click',function(e){
     loadCandidates(bk.title,bk.author,[]);$('#addform').scrollIntoView({behavior:'smooth',block:'start'})}
   else if(a==='canceledit'){resetForm()}
   else if(a==='share')openShare();
+  else if(a==='save-photo'){navigator.share({files:[shareFile]}).catch(function(err){if(err&&err.name!=='AbortError')toast('画像を長押しして「"写真"に追加」で保存してください')})}
   else if(a==='share-native'){navigator.share({files:[shareFile],text:shareText()+'\n'+siteURL()}).catch(function(){})}
   else if(a==='share-x'){var dl=$('#dl');if(dl&&!(navigator.canShare&&shareFile&&navigator.canShare({files:[shareFile]})))dl.click();openXIntent()}
   else if(a==='backup')backup();
