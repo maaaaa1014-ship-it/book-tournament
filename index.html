@@ -282,18 +282,53 @@ function urlToCover(url){
 
 /* ---------- search ---------- */
 var lastResults=[];
-function searchBooks(q){
-  return fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=20&printType=books')
-    .then(function(r){if(!r.ok)throw 0;return r.json()})
+function withTimeout(p,ms){return Promise.race([p,new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'))},ms)})])}
+function ndlThumb(isbn){return /^97[89]4/.test(isbn)?'https://ndlsearch.ndl.go.jp/thumbnail/'+isbn+'.jpg':''}
+function fromGoogle(q){
+  return withTimeout(fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=20&printType=books'),8000)
+    .then(function(r){if(!r.ok)throw new Error('google '+r.status);return r.json()})
     .then(function(j){
-      var seen={};
       return (j.items||[]).map(function(it){
-        var v=it.volumeInfo||{},il=v.imageLinks||{},ids=v.industryIdentifiers||[],isbn='';
-        ids.forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
-        var cover=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','');
-        if(!cover&&/^9784/.test(isbn))cover='https://ndlsearch.ndl.go.jp/thumbnail/'+isbn+'.jpg';
+        var v=it.volumeInfo||{},il=v.imageLinks||{},isbn='';
+        (v.industryIdentifiers||[]).forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
+        var cover=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','')||ndlThumb(isbn);
         return {title:(v.title||'')+(v.subtitle?' '+v.subtitle:''),author:(v.authors||[]).join(', '),cover:cover};
-      }).filter(function(b){var k=b.title+'|'+b.author;if(!b.title||seen[k])return false;seen[k]=1;return true});
+      });
+    });
+}
+function fromOpenLibrary(q){
+  return withTimeout(fetch('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=20&fields=title,author_name,cover_i,isbn'),8000)
+    .then(function(r){if(!r.ok)throw new Error('ol '+r.status);return r.json()})
+    .then(function(j){
+      return (j.docs||[]).map(function(d){
+        var isbn=(d.isbn||[]).filter(function(x){return x.length===13})[0]||'';
+        return {title:d.title||'',author:(d.author_name||[]).slice(0,2).join(', '),cover:d.cover_i?'https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg':ndlThumb(isbn)};
+      });
+    });
+}
+function fromNDL(q){
+  return withTimeout(fetch('https://ndlsearch.ndl.go.jp/api/opensearch?any='+encodeURIComponent(q)+'&mediatype=1&cnt=20'),8000)
+    .then(function(r){if(!r.ok)throw new Error('ndl '+r.status);return r.text()})
+    .then(function(t){
+      var doc=new DOMParser().parseFromString(t,'application/xml');
+      return Array.prototype.map.call(doc.getElementsByTagName('item'),function(it){
+        var title=(it.getElementsByTagName('title')[0]||{}).textContent||'',author='',isbn='';
+        var cr=it.getElementsByTagNameNS('*','creator')[0];if(cr)author=cr.textContent.replace(/\s*著$/,'');
+        Array.prototype.forEach.call(it.getElementsByTagNameNS('*','identifier'),function(el){var v=el.textContent.replace(/-/g,'');if(/^97[89]\d{10}$/.test(v))isbn=v});
+        return {title:title,author:author,cover:ndlThumb(isbn)};
+      });
+    });
+}
+function searchBooks(q){
+  var jp=/[぀-ヿ㐀-鿿]/.test(q);
+  var sources=jp?[fromGoogle(q),fromNDL(q),fromOpenLibrary(q)]:[fromGoogle(q),fromOpenLibrary(q),fromNDL(q)];
+  return Promise.all(sources.map(function(p){return p.then(function(v){return {ok:true,v:v}},function(e){return {ok:false,e:e}})}))
+    .then(function(rs){
+      if(!rs.some(function(r){return r.ok}))throw rs.map(function(r){return r.e&&r.e.message}).join(', ');
+      var seen={},out=[];
+      rs.forEach(function(r){if(r.ok)r.v.forEach(function(b){var k=(b.title+'|'+b.author).toLowerCase();if(b.title&&!seen[k]){seen[k]=1;out.push(b)}})});
+      out.sort(function(a,b){return (b.cover?1:0)-(a.cover?1:0)});
+      return out.slice(0,24);
     });
 }
 function doSearch(){
@@ -303,7 +338,7 @@ function doSearch(){
   searchBooks(q).then(function(items){
     lastResults=items;
     res.innerHTML=items.length?items.map(function(b,i){return '<button type="button" class="res" data-act="choose" data-i="'+i+'"><span class="th">'+coverHTML(b)+'</span><b>'+esc(b.title)+'</b><i>'+esc(b.author)+'</i></button>'}).join(''):'<p class="note">見つかりませんでした。表記を変えるか、下のフォームから手入力してください。</p>';
-  }).catch(function(){res.innerHTML='<p class="note">検索できませんでした。少し待ってからもう一度試すか、手入力で追加してください。</p>'});
+  }).catch(function(e){res.innerHTML='<p class="note">検索できませんでした。少し待ってからもう一度試すか、手入力で追加してください。<br><small>('+esc(String(e))+')</small></p>'});
 }
 
 /* ---------- render ---------- */
@@ -344,7 +379,7 @@ function render(){
     '<p class="fine">データはこのブラウザの中だけに保存され、サーバーには送られません。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存してください。</p>'+
     '<div class="row"><button class="ghost" data-act="backup">バックアップを保存</button><label class="ghost" for="f-restore">バックアップから復元<input type="file" id="f-restore" accept="application/json,.json" hidden></label></div>'+
     '<div class="row">'+(resetArm?'<span class="fine">'+year+'年の本と対戦結果をすべて消します。</span><button class="danger" data-act="reset-yes">すべて消す</button><button class="ghost" data-act="reset-no">やめる</button>':'<button class="ghost" data-act="reset">'+year+'年を最初からやり直す</button>')+'</div>'+
-    '<p class="fine">書誌情報と表紙: Google Books、国立国会図書館サーチ。表紙の画像は各出版社に帰属します。</p></section></div>';
+    '<p class="fine">書誌情報と表紙: Google Books、国立国会図書館サーチ、Open Library。表紙の画像は各出版社に帰属します。</p></section></div>';
   $('#app').innerHTML=o;
 }
 function flash(n){[n,n+'-bye'].forEach(function(k){var el=document.querySelector('[data-n="'+k+'"]');if(el)el.classList.add('just')})}
