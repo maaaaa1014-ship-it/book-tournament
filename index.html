@@ -348,39 +348,69 @@ function searchBooks(q){
 function normT(t){return String(t||'').toLowerCase().replace(/[\s:：・\-‐–—'’"“”!！?？.,、。()（）\[\]【】]/g,'')}
 function normA(a){return String(a||'').toLowerCase().split(/[,，、]/)[0].replace(/[\s.・]/g,'')}
 function uniq(a){var s={};return a.filter(function(x){if(!x||s[x])return false;s[x]=1;return true})}
-function moreCovers(title,author){
+function gThumb(v){var il=v.imageLinks||{};return (il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','')}
+function moreCovers(title,author,kw){
   var base=String(title).split(/[:：]/)[0].trim(),au=String(author||'').split(/[,，、]/)[0].trim(),nt=normT(base);
-  function sameTitle(t){var n=normT(t);return n.indexOf(nt)===0||nt.indexOf(n)===0}
-  var g=withTimeout(fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent('intitle:'+base+(au?' inauthor:'+au:''))+'&maxResults=40'),8000)
+  var latin=!/[぀-ヿ㐀-鿿]/.test(base),pref=String(kw||(latin?'penguin':'')).toLowerCase();
+  function sameTitle(t){var n=normT(t);return !!n&&(n.indexOf(nt)===0||nt.indexOf(n)===0)}
+  function gq(q){
+    return withTimeout(fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=40'),8000)
+      .then(function(r){if(!r.ok)throw 0;return r.json()})
+      .then(function(j){var out=[];(j.items||[]).forEach(function(it){var v=it.volumeInfo||{},isbn='';
+        if(!sameTitle(v.title))return;
+        (v.industryIdentifiers||[]).forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
+        var c=gThumb(v);if(c)out.push({u:c,pub:v.publisher||''});if(ndlThumb(isbn))out.push({u:ndlThumb(isbn),pub:v.publisher||''})});return out})
+      .catch(function(){return []});
+  }
+  var jobs=[gq('intitle:'+base+(au?' inauthor:'+au:''))];
+  if(pref){jobs.push(gq('intitle:'+base+' inpublisher:'+pref));jobs.push(gq('intitle:'+base+' '+pref))}
+  jobs.push(withTimeout(fetch('https://openlibrary.org/search.json?title='+encodeURIComponent(base)+(au?'&author='+encodeURIComponent(au):'')+'&limit=3&fields=key,title,cover_i,isbn'),8000)
     .then(function(r){if(!r.ok)throw 0;return r.json()})
-    .then(function(j){var out=[];(j.items||[]).forEach(function(it){var v=it.volumeInfo||{},il=v.imageLinks||{},isbn='';
-      if(!sameTitle(v.title))return;
-      (v.industryIdentifiers||[]).forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
-      var c=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','');
-      if(c)out.push(c);if(ndlThumb(isbn))out.push(ndlThumb(isbn));});return out}).catch(function(){return []});
-  var o=withTimeout(fetch('https://openlibrary.org/search.json?title='+encodeURIComponent(base)+(au?'&author='+encodeURIComponent(au):'')+'&limit=5&fields=title,cover_i,isbn'),8000)
-    .then(function(r){if(!r.ok)throw 0;return r.json()})
-    .then(function(j){var out=[];(j.docs||[]).forEach(function(d){if(!sameTitle(d.title))return;if(d.cover_i)out.push('https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg');
-      (d.isbn||[]).filter(function(x){return /^97[89]4/.test(x)}).slice(0,3).forEach(function(x){out.push(ndlThumb(x))})});return out}).catch(function(){return []});
-  return Promise.all([g,o]).then(function(r){return r[0].concat(r[1])});
+    .then(function(j){
+      var docs=(j.docs||[]).filter(function(d){return sameTitle(d.title)}).slice(0,2),out=[];
+      docs.forEach(function(d){if(d.cover_i)out.push({u:'https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg',pub:''});
+        (d.isbn||[]).filter(function(x){return /^97[89]4/.test(x)}).slice(0,3).forEach(function(x){out.push({u:ndlThumb(x),pub:''})})});
+      return Promise.all(docs.map(function(d){
+        return withTimeout(fetch('https://openlibrary.org'+d.key+'/editions.json?limit=200'),9000).then(function(r){if(!r.ok)throw 0;return r.json()})
+          .then(function(e){var o=[];(e.entries||[]).forEach(function(ed){var pub=(ed.publishers||[]).join(', ');(ed.covers||[]).slice(0,1).forEach(function(id){if(id>0)o.push({u:'https://covers.openlibrary.org/b/id/'+id+'-M.jpg',pub:pub})})});return o}).catch(function(){return []});
+      })).then(function(rs){return out.concat.apply(out,rs)});
+    }).catch(function(){return []}));
+  return Promise.all(jobs).then(function(rs){
+    var all=[].concat.apply([],rs);
+    if(pref){var hit=all.filter(function(c){return c.pub.toLowerCase().indexOf(pref)>=0});all=hit.concat(all.filter(function(c){return hit.indexOf(c)<0}))}
+    return all;
+  });
 }
-function loadCandidates(title,author,first){
-  draft.cands=uniq(first||[]);draft.candLoading=true;renderCovers();
-  var tok=draft.candTok=Math.random();
-  moreCovers(title,author).then(function(more){if(draft.candTok!==tok)return;draft.cands=uniq(draft.cands.concat(more)).slice(0,24);draft.candLoading=false;renderCovers()});
+function addCands(list,front){
+  draft.pub=draft.pub||{};
+  list.forEach(function(c){if(typeof c==='string')c={u:c,pub:''};if(c.u&&c.pub&&!draft.pub[c.u])draft.pub[c.u]=c.pub});
+  var urls=list.map(function(c){return typeof c==='string'?c:c.u});
+  draft.cands=uniq(front?urls.concat(draft.cands||[]):(draft.cands||[]).concat(urls)).slice(0,60);
 }
+function loadCandidates(title,author,first,kw){
+  if(!kw){draft.cands=[];draft.pub={};addCands(first||[])}
+  draft.candLoading=true;renderCovers();
+  var tok=draft.candTok=Math.random(),before=(draft.cands||[]).length;
+  moreCovers(title,author,kw).then(function(more){if(draft.candTok!==tok)return;addCands(more,!!kw);draft.candLoading=false;renderCovers();
+    if(kw){var lk=kw.toLowerCase(),n=draft.cands.filter(function(u){return String((draft.pub||{})[u]||'').toLowerCase().indexOf(lk)>=0}).length;toast(n>0?'「'+kw+'」の表紙'+n+'件を先頭に並べました':'「'+kw+'」の表紙は見つかりませんでした。写真・スクショからも入れられます');var st=document.querySelector('.cstrip');if(st)st.scrollLeft=0}});
+}
+function shortPub(p){p=String(p||'');var m=/penguin|vintage|oxford|signet|bantam|wordsworth|everyman|modern library|harper|scholastic|puffin|新潮|岩波|角川|講談社|光文社|早川|集英社|文藝春秋/i.exec(p);return m?m[0]:''}
 function renderCovers(){
   var el=$('#covers');if(!el)return;
   var c=draft.cands||[];
-  if(!c.length&&!draft.candLoading&&!draft.cover){el.hidden=true;return}
+  if(!c.length&&!draft.candLoading&&!draft.cover&&!$('#f-title').value){el.hidden=true;return}
   el.hidden=false;
-  var t=$('#f-title').value||' ',a=$('#f-author').value;
+  var t=$('#f-title').value||' ',a=$('#f-author').value,kwv=($('#f-kw')||{}).value||'';
   var h='<h4>表紙を選ぶ'+(c.length?'（'+c.length+'件）':'')+'</h4><div class="cstrip">';
-  c.forEach(function(u){h+='<button type="button" class="ctile'+(draft.sel===u?' on':'')+'" data-act="pickcover" data-u="'+esc(u)+'" aria-label="この表紙にする"><img src="'+esc(u)+'" alt="" loading="lazy"></button>'});
+  c.forEach(function(u){var sp=shortPub((draft.pub||{})[u]);h+='<button type="button" class="ctile'+(draft.sel===u?' on':'')+'" data-act="pickcover" data-u="'+esc(u)+'" aria-label="この表紙にする"'+(draft.pub&&draft.pub[u]?' title="'+esc(draft.pub[u])+'"':'')+'><img src="'+esc(u)+'" alt="" loading="lazy">'+(sp?'<span class="tag">'+esc(sp)+'</span>':'')+'</button>'});
   if(draft.custom)h+='<button type="button" class="ctile'+(draft.sel==='custom'?' on':'')+'" data-act="pickcover" data-u="custom" aria-label="写真の表紙"><img src="'+draft.custom+'" alt=""><span class="tag">写真</span></button>';
   h+='<button type="button" class="ctile'+(draft.sel==='auto'?' on':'')+'" data-act="pickcover" data-u="auto" aria-label="自動カバー">'+coverHTML({title:t,author:a})+'<span class="tag">自動</span></button>';
   if(draft.candLoading)h+='<span class="ctile more">探し中…</span>';
-  el.innerHTML=h+'</div><p class="note">横にスクロールして選べます。</p>';
+  h+='</div><p class="note">横にスクロールして選べます。</p>';
+  h+='<div class="search"><input type="search" id="f-kw" placeholder="出版社・シリーズで探す（例: Penguin Classics）" enterkeyhint="search" autocomplete="off" value="'+esc(kwv)+'"><button type="button" class="ghost" data-act="coversearch">探す</button></div>';
+  var focused=document.activeElement&&document.activeElement.id==='f-kw';
+  el.innerHTML=h;
+  if(focused){var k=$('#f-kw');k.focus();k.setSelectionRange(k.value.length,k.value.length)}
 }
 function doSearch(){
   var q=$('#f-q').value.trim(),res=$('#results');
@@ -641,6 +671,7 @@ document.addEventListener('click',function(e){
   else if(a==='choose'){var r=lastResults[+t.dataset.i];if(!r)return;$('#f-title').value=r.title;$('#f-author').value=r.author;draft.cover='';draft.custom='';
     if(r.cover){draft.sel=r.cover;setCoverFromURL(r.cover)}else{draft.sel='auto';draft.token=null;draft.loading=false;$('#addbtn').disabled=false;updatePrev()}
     loadCandidates(r.title,r.author,[r.cover].concat(r.alts||[]));$('#addform').scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(a==='coversearch'){var kw=($('#f-kw')||{}).value.trim(),ti=$('#f-title').value.trim();if(!ti){toast('先にタイトルを入れてください');return}if(!kw){$('#f-kw').focus();return}loadCandidates(ti,$('#f-author').value.trim(),null,kw)}
   else if(a==='pickcover'){var u=t.dataset.u;draft.sel=u;
     if(u==='auto'){draft.token=null;draft.loading=false;draft.cover='';$('#addbtn').disabled=false;updatePrev()}
     else if(u==='custom'){draft.token=null;draft.loading=false;draft.cover=draft.custom;$('#addbtn').disabled=false;updatePrev()}
@@ -686,7 +717,7 @@ document.addEventListener('paste',function(e){
   if(curM==null)return;var f=e.clipboardData&&e.clipboardData.files&&e.clipboardData.files[0];
   if(f&&/^image\//.test(f.type)){e.preventDefault();blobToCover(f).then(function(u){draft.cover=draft.custom=u;draft.sel='custom';updatePrev();renderCovers()},function(){})}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#scrim'))closeSheet()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#scrim'))closeSheet();if(e.key==='Enter'&&e.target.id==='f-kw'){e.preventDefault();var b=document.querySelector('[data-act=coversearch]');if(b)b.click()}});
 
 render();
 })();
