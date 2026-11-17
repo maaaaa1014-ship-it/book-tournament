@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>今年の1冊トーナメント</title>
+<meta name="description" content="毎月読んだ本からその月のベストを選び、トーナメントで今年の1冊を決める読書ブラケット。表紙検索つき、結果は画像でXにシェアできます。">
+<meta property="og:title" content="今年の1冊トーナメント">
+<meta property="og:description" content="月ごとのベスト本をトーナメントで戦わせて、今年の1冊を決めよう。">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#f4f5f8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='4' width='20' height='24' rx='2' fill='%232f43c8'/%3E%3Crect x='6' y='4' width='4' height='24' fill='%231b2130' opacity='.35'/%3E%3Cpath d='M13 12h9M13 16h7' stroke='%23ffe04a' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: the paper bracket template, redrawn on a fixed-ratio stage (1000 x 1840 units) with tap-to-fill slots */
+:root{
+  --paper:#f4f5f8; --card:#ffffff; --ink:#1b2130; --muted:#646d82; --line:#8f98ab;
+  --accent:#2f43c8; --accent-ink:#ffffff; --mark:#ffe04a; --mark-ink:#1b2130;
+  --slot:#ffffff; --slot-edge:#1b2130; --danger:#c23b3b;
+  --f-display:"Bricolage Grotesque","Zen Kaku Gothic New",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-mono:"DM Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#13161e; --card:#1c202b; --ink:#e8ebf2; --muted:#9aa2b5; --line:#5d667b;
+    --accent:#8d9dff; --accent-ink:#0f1320; --mark:#e9c936; --mark-ink:#1b2130;
+    --slot:#1c202b; --slot-edge:#cdd3df; --danger:#ff8a8a; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 var(--f-body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+img{max-width:100%}
+[hidden]{display:none!important}
+.wrap{max-width:600px;margin:0 auto;padding-block:18px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 12px}
+.brand{margin:0;font:700 17px/1.3 var(--f-body)}
+.prog{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.prog b{color:var(--ink);font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.yearsel{font:500 14px var(--f-mono);background:var(--card);border:1px solid var(--line);border-radius:8px;min-height:40px;padding:0 10px}
+
+/* stage */
+.stage{position:relative;width:100%;aspect-ratio:1000/1840;container-type:inline-size}
+.stage svg.lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.lines .dot{stroke:var(--line);stroke-width:4;stroke-linecap:round;stroke-dasharray:0.1 9;fill:none}
+.lines .scallop{stroke:var(--slot-edge);stroke-width:3;fill:var(--slot)}
+.mlabel{position:absolute;display:flex;align-items:center;justify-content:center;font:500 max(9px,3.1cqw)/1 var(--f-mono);letter-spacing:.04em}
+.ttl{position:absolute;font:500 6.6cqw/1.08 var(--f-display);letter-spacing:-.01em;margin:0}
+.ttl .sub{display:block;margin-top:2.2cqw;font:500 max(10px,2.6cqw)/1.4 var(--f-body);color:var(--muted);letter-spacing:.06em}
+.ttl .champwrap{display:block;margin-top:2cqw;max-width:100%}
+.ttl .champ{font:700 max(11px,3cqw)/1.5 var(--f-body);background:linear-gradient(transparent 55%,var(--mark) 55%);color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.blabel{position:absolute;display:flex;align-items:flex-end;justify-content:center;font:500 4.3cqw/1 var(--f-display)}
+.blabel.below{align-items:flex-start}
+
+.slot{position:absolute;container-type:inline-size;border:2px solid var(--slot-edge);background:var(--slot);padding:0;overflow:hidden;cursor:pointer;border-radius:2px;transition:transform .15s ease}
+.slot:disabled,.slot.bye{cursor:default}
+.slot.idle{border-color:color-mix(in srgb,var(--slot-edge) 45%,transparent)}
+.slot.ready{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 28%,transparent);animation:breathe 2.2s ease-in-out infinite}
+.slot:not(:disabled):not(.bye):active{transform:scale(.96)}
+.slot .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;font:700 max(9px,13cqw)/1.25 var(--f-body);color:var(--muted)}
+.slot.ready .ph{color:var(--accent)}
+.slot .ph.plus{font:400 34cqw/1 var(--f-display);color:var(--line)}
+.slot img,.th img,.pc img,.prev img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none}
+.slot.best{border:none;background:transparent;overflow:visible}
+.slot.best .inner{position:absolute;inset:6%;overflow:hidden;container-type:inline-size}
+.slot.best .ph{font:500 9cqw/1.4 var(--f-display)}
+.badge{position:absolute;right:3px;top:3px;z-index:2;background:var(--ink);color:var(--paper);font:500 max(8px,11cqw)/1 var(--f-mono);padding:3px 4px;border-radius:2px}
+.stamp{position:absolute;z-index:3;right:-6%;bottom:-4%;transform:rotate(9deg);background:var(--mark);color:var(--mark-ink);font:700 10cqw/1 var(--f-display);padding:3% 6%;letter-spacing:.04em;box-shadow:0 2px 0 var(--slot-edge)}
+.just{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.just .stamp{animation:stamp .6s .15s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes breathe{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 12%,transparent)}}
+@keyframes pop{0%{transform:scale(.7)}100%{transform:scale(1)}}
+@keyframes stamp{0%{transform:rotate(30deg) scale(2.4);opacity:0}100%{transform:rotate(9deg) scale(1);opacity:1}}
+
+/* generated cover */
+.gen{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:4px;padding:9cqw 8cqw 9cqw 12cqw;background:var(--g);color:#fff;text-align:left}
+.gen::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5cqw;background:rgb(0 0 0/.18)}
+.gen b{position:relative;font:700 max(7px,14cqw)/1.22 var(--f-body);overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.gen i{position:relative;font:400 max(6px,9.5cqw)/1.2 var(--f-body);font-style:normal;opacity:.85;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+.sharebar{display:flex;flex-direction:column;gap:6px}
+.sharebar .primary{min-height:48px;font-size:15px}
+
+/* how-to */
+.how{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.how h3{margin:0;font:700 15px/1.4 var(--f-body)}
+.how ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.7;max-width:62ch}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fine{margin:0;font-size:12px;line-height:1.7;color:var(--muted)}
+
+.ghost,.primary,.danger{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;text-decoration:none;color:var(--ink)}
+.ghost{background:transparent;border:1px solid var(--line)}
+.primary{background:var(--accent);color:var(--accent-ink);border:none;font-weight:700}
+.danger{background:var(--danger);color:var(--paper);border:none}
+.primary:disabled{opacity:.5;cursor:default}
+
+/* sheet */
+.scrim{position:fixed;inset:0;z-index:30;background:rgb(8 10 18/.5);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s ease}
+.sheet{width:100%;max-width:560px;max-height:90vh;overflow-y:auto;background:var(--card);color:var(--ink);border-radius:16px 16px 0 0;padding-top:18px;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px;animation:rise .25s cubic-bezier(.2,.9,.3,1)}
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{transform:translateY(30px);opacity:.4}}
+.sh-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.eyebrow{margin:0;font:500 11px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sh-head h2{margin:2px 0 0;font:700 20px/1.35 var(--f-body);text-wrap:balance}
+.x{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:20px;line-height:1}
+.hint,.note{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
+.empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:10px;font-size:14px;color:var(--muted);text-align:center}
+.books{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.books li{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--line);border-radius:10px}
+.books li.is-best{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.bk{flex:1;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer}
+.bk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.th,.pc,.prev{position:relative;container-type:inline-size;aspect-ratio:2/3;overflow:hidden;border-radius:3px;background:color-mix(in srgb,var(--line) 25%,transparent)}
+.bk .th{width:42px;flex:none}
+.meta{min-width:0;display:flex;flex-direction:column;gap:2px}
+.meta b{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.meta i{font-style:normal;font-size:12px;color:var(--muted)}
+.meta em{font-style:normal;align-self:flex-start;font:700 11px/1.6 var(--f-body);padding:0 6px;background:var(--mark);color:var(--mark-ink);border-radius:2px}
+.del{flex:none;min-height:34px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:12px;color:var(--muted)}
+.del.arm{border-color:var(--danger);color:var(--danger);font-weight:700}
+
+.add{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid var(--line)}
+.add h3{margin:0;font:700 15px/1.4 var(--f-body)}
+.search{display:flex;gap:8px}
+.search input{flex:1;min-width:0}
+input[type=text],input[type=search]{font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0;width:100%}
+input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.add-grid{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:start}
+.prev{width:76px}
+.prev .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);text-align:center;padding:4px}
+.fields{min-width:0;display:flex;flex-direction:column;gap:10px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.results:empty{display:none}
+.results>p{grid-column:1/-1}
+.res{display:flex;flex-direction:column;gap:4px;padding:0;border:none;background:transparent;text-align:left;cursor:pointer;min-width:0}
+.res b{font-size:12px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.res i{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.or{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.vsmark{font:700 15px/1 var(--f-display);color:var(--muted)}
+.pick{display:flex;flex-direction:column;gap:6px;padding:8px;border:2px solid var(--line);border-radius:12px;background:transparent;cursor:pointer;text-align:left;min-width:0}
+.pick:hover{border-color:var(--accent)}
+.pick.won{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.pick .pt{font:700 14px/1.4 var(--f-body);overflow-wrap:anywhere}
+.pick .pa{font:500 11px/1 var(--f-mono);color:var(--muted);letter-spacing:.06em}
+
+.shot{display:flex;justify-content:center;background:color-mix(in srgb,var(--line) 18%,transparent);border-radius:10px;padding:10px;min-height:120px;align-items:center}
+.shot img{max-height:56vh;width:auto;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.15)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:40;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:99px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+(function(){
+'use strict';
+var TOTAL=1840, BW=130, BH=195;
+var COLX=[83.33,250,416.67,583.33,750,916.67];
+var EN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+var NOW_Y=new Date().getFullYear();
+var HASHTAG='#今年の1冊トーナメント';
+
+function $(s,r){return (r||document).querySelector(s)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function uid(){return 'b'+Math.random().toString(36).slice(2,10)}
+function blank(y){return {v:1,year:y,updatedAt:0,months:Array.from({length:12},function(){return {books:[],best:null}}),picks:{}}}
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}
+function siteURL(){return location.origin+location.pathname.replace(/index\.html$/,'')}
+
+var toastT=null;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+
+/* ---------- state ---------- */
+function key(y){return 'fbty-'+y}
+function loadYear(y){var s=null;try{s=JSON.parse(lsGet(key(y)))}catch(e){}return (s&&s.months)?s:blank(y)}
+var year=+(lsGet('fbty-year')||NOW_Y)||NOW_Y;
+var state=loadYear(year);
+function save(){
+  state.updatedAt=Date.now();
+  if(!lsSet(key(year),JSON.stringify(state))) toast('保存できませんでした。端末の空き容量やブラウザ設定を確認してください。');
+  lsSet('fbty-year',String(year));
+}
+function storedYears(){var ys={};try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i),m=/^fbty-(\d{4})$/.exec(k);if(m)ys[m[1]]=1}}catch(e){}return Object.keys(ys).map(Number)}
+
+function bookById(id){for(var m=0;m<12;m++){var b=state.months[m].books;for(var i=0;i<b.length;i++)if(b[i].id===id)return {book:b[i],month:m}}return null}
+function monthChamp(m){var mo=state.months[m];if(!mo.books.length)return null;if(mo.best&&mo.books.some(function(b){return b.id===mo.best}))return mo.best;if(mo.books.length===1)return mo.books[0].id;return null}
+var NODES={};
+[0,1].forEach(function(h){var b=h*6,p='h'+h;
+  NODES[p+'a']=[{m:b},{m:b+1}];NODES[p+'b']=[{m:b+2},{m:b+3}];NODES[p+'c']=[{m:b+4},{m:b+5}];
+  NODES[p+'d']=[{n:p+'a'},{n:p+'b'}];NODES[p+'e']=[{n:p+'d'},{n:p+'c'}];});
+NODES.final=[{n:'h0e'},{n:'h1e'}];
+var ORDER=['h0a','h0b','h0c','h0d','h0e','h1a','h1b','h1c','h1d','h1e','final'];
+function src(s){return s.m!==undefined?monthChamp(s.m):winner(s.n)}
+function parts(n){return NODES[n].map(src)}
+function winner(n){var p=parts(n),w=state.picks[n];return (p[0]&&p[1]&&(w===p[0]||w===p[1]))?w:null}
+function cleanup(){ORDER.forEach(function(n){var w=state.picks[n];if(w==null)return;var p=parts(n);if(!(p[0]&&p[1]&&(w===p[0]||w===p[1])))delete state.picks[n]})}
+function commit(){cleanup();save();render()}
+
+/* ---------- geometry (shared by the page and the share image) ---------- */
+var LINES=(function(){
+  var top=[[148.3,147.5,185,147.5],[166.67,147.5,166.67,290],[481.7,147.5,518.3,147.5],[500,147.5,500,290],[815,147.5,851.7,147.5],[833.33,147.5,833.33,290],
+    [231.7,387.5,435,387.5],[333.33,387.5,333.33,430],[666.67,387.5,768.3,387.5],[666.67,387.5,666.67,430],[398.3,527.5,601.7,527.5],[500,527.5,500,670]];
+  var all=top.concat(top.map(function(l){return [l[0],TOTAL-l[1],l[2],TOTAL-l[3]]}));
+  all.push([500,865,500,975],[500,920,650,920]);return all;
+})();
+var BEST={x:650,y:695,w:300,h:450};
+function scallopD(x,y,w,h){
+  var r=12.5,d='M'+x+' '+y,i;
+  for(i=0;i<w/25;i++)d+=' a'+r+' '+r+' 0 0 1 25 0';
+  for(i=0;i<h/25;i++)d+=' a'+r+' '+r+' 0 0 1 0 25';
+  for(i=0;i<w/25;i++)d+=' a'+r+' '+r+' 0 0 1 -25 0';
+  for(i=0;i<h/25;i++)d+=' a'+r+' '+r+' 0 0 1 0 -25';
+  return d+' Z';
+}
+function layout(){
+  var L=[],h,i;
+  for(h=0;h<2;h++){
+    var top=h===0,Y=function(v){return top?v:TOTAL-v-BH},p='h'+h;
+    for(i=0;i<6;i++){
+      var m=h*6+i,mo=state.months[m],c=monthChamp(m);
+      L.push({kind:'month',m:m,x:COLX[i]-BW/2,y:Y(50),w:BW,h:BH,book:c,count:mo.books.length,ready:!c&&mo.books.length>1,label:EN[m],lx:COLX[i],ly:top?23:TOTAL-23});
+    }
+    [['a',166.67,290],['b',500,290],['c',833.33,290],['d',333.33,430],['e',500,670]].forEach(function(d){
+      var n=p+d[0],pp=parts(n),w=winner(n);
+      L.push({kind:'match',n:n,x:d[1]-BW/2,y:Y(d[2]),w:BW,h:BH,book:w,ready:!w&&!!(pp[0]&&pp[1]),idle:!w&&!(pp[0]&&pp[1])});
+    });
+    var bw=winner(p+'c');
+    L.push({kind:'bye',n:p+'c-bye',x:666.67-BW/2,y:Y(430),w:BW,h:BH,book:bw,idle:!bw});
+  }
+  var fp=parts('final'),fw=winner('final');
+  L.push({kind:'best',n:'final',x:BEST.x,y:BEST.y,w:BEST.w,h:BEST.h,book:fw,ready:!fw&&!!(fp[0]&&fp[1]),idle:!fw&&!(fp[0]&&fp[1])});
+  return L;
+}
+
+/* ---------- covers ---------- */
+function hue(s){var h=0;s=String(s||'');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%360}
+function coverHTML(b){
+  if(!b)return '';
+  return '<span class="gen" style="--g:hsl('+hue(b.title)+' 42% 35%)"><b>'+esc(b.title)+'</b><i>'+esc(b.author||'')+'</i></span>'+(b.cover?'<img src="'+esc(b.cover)+'" alt="" loading="lazy">':'');
+}
+document.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&t.closest&&t.closest('#app,.scrim')&&!t.closest('.shot'))t.remove()},true);
+function blobToCover(blob){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(blob),img=new Image();
+    img.onload=function(){
+      if(img.width<20||img.height<20){URL.revokeObjectURL(url);return rej()}
+      var tw=240,th=360,c=document.createElement('canvas');c.width=tw;c.height=th;
+      var ctx=c.getContext('2d'),s=Math.max(tw/img.width,th/img.height),w=img.width*s,h=img.height*s;
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,tw,th);ctx.drawImage(img,(tw-w)/2,(th-h)/2,w,h);URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg',0.82));
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej()};
+    img.src=url;
+  });
+}
+function proxied(u){return 'https://wsrv.nl/?url='+encodeURIComponent(u)+'&output=jpg'}
+function urlToCover(url){
+  var tries=[url,proxied(url)],i=0;
+  function next(){
+    if(i>=tries.length)return Promise.resolve(url);
+    var u=tries[i++];
+    return fetch(u,{mode:'cors'}).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){if(!/^image\//.test(b.type))throw 0;return blobToCover(b)}).catch(next);
+  }
+  return next();
+}
+
+/* ---------- search ---------- */
+var lastResults=[];
+function searchBooks(q){
+  return fetch('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=20&printType=books')
+    .then(function(r){if(!r.ok)throw 0;return r.json()})
+    .then(function(j){
+      var seen={};
+      return (j.items||[]).map(function(it){
+        var v=it.volumeInfo||{},il=v.imageLinks||{},ids=v.industryIdentifiers||[],isbn='';
+        ids.forEach(function(x){if(x.type==='ISBN_13')isbn=x.identifier});
+        var cover=(il.thumbnail||il.smallThumbnail||'').replace(/^http:/,'https:').replace('&edge=curl','');
+        if(!cover&&/^9784/.test(isbn))cover='https://ndlsearch.ndl.go.jp/thumbnail/'+isbn+'.jpg';
+        return {title:(v.title||'')+(v.subtitle?' '+v.subtitle:''),author:(v.authors||[]).join(', '),cover:cover};
+      }).filter(function(b){var k=b.title+'|'+b.author;if(!b.title||seen[k])return false;seen[k]=1;return true});
+    });
+}
+function doSearch(){
+  var q=$('#f-q').value.trim(),res=$('#results');
+  if(!q){res.innerHTML='<p class="note">タイトルや著者名を入れてください。</p>';return}
+  res.innerHTML='<p class="note">検索中…</p>';
+  searchBooks(q).then(function(items){
+    lastResults=items;
+    res.innerHTML=items.length?items.map(function(b,i){return '<button type="button" class="res" data-act="choose" data-i="'+i+'"><span class="th">'+coverHTML(b)+'</span><b>'+esc(b.title)+'</b><i>'+esc(b.author)+'</i></button>'}).join(''):'<p class="note">見つかりませんでした。表記を変えるか、下のフォームから手入力してください。</p>';
+  }).catch(function(){res.innerHTML='<p class="note">検索できませんでした。少し待ってからもう一度試すか、手入力で追加してください。</p>'});
+}
+
+/* ---------- render ---------- */
+function pos(x,y,w,h){return 'left:'+(x/10)+'%;top:'+(y/TOTAL*100)+'%;width:'+(w/10)+'%'+(h!=null?';height:'+(h/TOTAL*100)+'%':'')}
+var resetArm=false;
+function render(){
+  var md=0,mt=0,m;
+  for(m=0;m<12;m++)if(monthChamp(m))md++;
+  ORDER.forEach(function(n){if(winner(n))mt++});
+  var champ=winner('final'),cb=champ&&bookById(champ).book;
+  var ys=storedYears();[NOW_Y-1,NOW_Y,NOW_Y+1,year].forEach(function(y){if(ys.indexOf(y)<0)ys.push(y)});ys.sort();
+  var o='<div class="wrap"><header class="top"><div><h1 class="brand">今年の1冊トーナメント</h1><p class="prog">月のベスト <b>'+md+'</b>/12　対戦 <b>'+mt+'</b>/11</p></div>'+
+    '<select class="yearsel" id="yearsel" aria-label="年">'+ys.map(function(y){return '<option value="'+y+'"'+(y===year?' selected':'')+'>'+y+'</option>'}).join('')+'</select></header>';
+  o+='<div class="stage"><svg class="lines" viewBox="0 0 1000 '+TOTAL+'" preserveAspectRatio="none" aria-hidden="true">'+
+    LINES.map(function(l){return '<line class="dot" x1="'+l[0]+'" y1="'+l[1]+'" x2="'+l[2]+'" y2="'+l[3]+'"/>'}).join('')+'<path class="scallop" d="'+scallopD(BEST.x,BEST.y,BEST.w,BEST.h)+'"/></svg>';
+  layout().forEach(function(s){
+    var b=s.book&&bookById(s.book).book,st=pos(s.x,s.y,s.w,s.h);
+    if(s.kind==='month'){
+      var inner=b?coverHTML(b):(s.ready?'<span class="ph">ベストを選ぶ</span>':'<span class="ph plus">+</span>');
+      if(s.count>1)inner+='<span class="badge">'+s.count+'冊</span>';
+      o+='<button class="slot'+(s.ready?' ready':'')+'" data-act="month" data-m="'+s.m+'" style="'+st+'" aria-label="'+(s.m+1)+'月の本">'+inner+'</button>';
+      o+='<span class="mlabel" style="'+pos(s.lx-70,s.ly-19,140,38)+'">'+s.label+'</span>';
+    }else if(s.kind==='match'){
+      if(b)o+='<button class="slot" data-act="match" data-n="'+s.n+'" style="'+st+'" aria-label="対戦結果">'+coverHTML(b)+'</button>';
+      else if(s.ready)o+='<button class="slot ready" data-act="match" data-n="'+s.n+'" style="'+st+'" aria-label="勝者を決める"><span class="ph">決める</span></button>';
+      else o+='<button class="slot idle" disabled data-n="'+s.n+'" style="'+st+'" aria-label="まだ対戦できません"></button>';
+    }else if(s.kind==='bye'){
+      o+='<div class="slot bye'+(b?'':' idle')+'" data-n="'+s.n+'" style="'+st+'" aria-label="シード">'+(b?coverHTML(b):'')+'</div>';
+    }else{
+      var bi=b?'<span class="inner">'+coverHTML(b)+'</span><span class="stamp">BEST</span>':(s.ready?'<span class="inner"><span class="ph">決勝を<br>決める</span></span>':'<span class="inner"><span class="ph">?</span></span>');
+      o+='<button class="slot best'+(s.idle?' idle':'')+'" data-act="match" data-n="final"'+(b||s.ready?'':' disabled')+' style="'+st+'" aria-label="今年のベスト">'+bi+'</button>';
+    }
+  });
+  o+='<span class="blabel" style="'+pos(640,620,320,62)+'">Best book</span><span class="blabel below" style="'+pos(640,1162,320,50)+'">of '+year+'</span>';
+  o+='<p class="ttl" style="'+pos(28,720,400)+'">Favorite<br>books of<br>the year<span class="sub">毎月のベストで勝ち抜き戦</span>'+(cb?'<span class="champwrap"><span class="champ">『'+esc(cb.title)+'』</span></span>':'')+'</p></div>';
+  o+='<div class="sharebar"><button class="primary" data-act="share">画像にしてXでシェア</button><p class="fine">途中経過でもシェアできます。</p></div>';
+  o+='<section class="how"><h3>使い方</h3><ol><li>月の枠をタップして、読んだ本を検索して追加します。2冊以上なら「今月のベスト」を1冊選びます。</li><li>隣り合う月どうしで対戦。青く光る枠をタップして勝者を選びます。5・6月と11・12月の勝者はシードで1試合少なく進みます。</li><li>上半期と下半期の勝者で決勝。勝った本が今年の1冊です。</li></ol>'+
+    '<p class="fine">データはこのブラウザの中だけに保存され、サーバーには送られません。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存してください。</p>'+
+    '<div class="row"><button class="ghost" data-act="backup">バックアップを保存</button><label class="ghost" for="f-restore">バックアップから復元<input type="file" id="f-restore" accept="application/json,.json" hidden></label></div>'+
+    '<div class="row">'+(resetArm?'<span class="fine">'+year+'年の本と対戦結果をすべて消します。</span><button class="danger" data-act="reset-yes">すべて消す</button><button class="ghost" data-act="reset-no">やめる</button>':'<button class="ghost" data-act="reset">'+year+'年を最初からやり直す</button>')+'</div>'+
+    '<p class="fine">書誌情報と表紙: Google Books、国立国会図書館サーチ。表紙の画像は各出版社に帰属します。</p></section></div>';
+  $('#app').innerHTML=o;
+}
+function flash(n){[n,n+'-bye'].forEach(function(k){var el=document.querySelector('[data-n="'+k+'"]');if(el)el.classList.add('just')})}
+
+/* ---------- sheets ---------- */
+var curM=null,draft={},pendingDel=null,shareURL=null,shareFile=null;
+function openSheet(html){
+  closeSheet();
+  var s=document.createElement('div');s.className='scrim';s.id='scrim';
+  s.innerHTML='<div class="sheet" role="dialog" aria-modal="true" tabindex="-1">'+html+'</div>';
+  document.body.appendChild(s);document.body.style.overflow='hidden';s.firstChild.focus({preventScroll:true});
+}
+function closeSheet(){
+  var s=$('#scrim');if(s)s.remove();document.body.style.overflow='';
+  curM=null;pendingDel=null;draft={};
+  if(shareURL){URL.revokeObjectURL(shareURL);shareURL=null;shareFile=null}
+}
+function head(eyebrow,title){return '<div class="sh-head"><div><p class="eyebrow">'+eyebrow+'</p><h2>'+title+'</h2></div><button class="x" data-act="close" aria-label="閉じる">×</button></div>'}
+function openMonth(m){
+  openSheet(head(EN[m]+' · '+(m+1)+'月',(m+1)+'月に読んだ本')+'<div id="list"></div>'+
+    '<div class="add"><h3>本を追加</h3>'+
+    '<form class="search" id="searchform" role="search"><input type="search" id="f-q" placeholder="タイトル・著者で検索" enterkeyhint="search" autocomplete="off"><button class="primary" type="submit">検索</button></form>'+
+    '<div id="results" class="results"></div>'+
+    '<p class="or">または手入力</p>'+
+    '<form id="addform" autocomplete="off" style="display:flex;flex-direction:column;gap:12px"><div class="add-grid"><div class="prev" id="prev"></div><div class="fields">'+
+    '<label for="f-title">タイトル<input type="text" id="f-title" required></label><label for="f-author">著者（なくてもOK）<input type="text" id="f-author"></label></div></div>'+
+    '<div class="row"><label class="ghost" for="f-file">写真・スクショで表紙を入れる<input type="file" accept="image/*" id="f-file" hidden></label><button type="button" class="ghost" data-act="clearcover" id="clearcover" hidden>表紙を外す</button></div>'+
+    '<p class="note">検索結果をタップすると、タイトル・著者・表紙が入ります。表紙がない本はタイトル入りのカバーを自動で作ります。</p>'+
+    '<button class="primary" type="submit" id="addbtn">'+(m+1)+'月に追加</button></form></div>');
+  curM=m;renderList();updatePrev();
+}
+function renderList(){
+  var mo=state.months[curM],c=monthChamp(curM),el=$('#list');if(!el)return;
+  if(!mo.books.length){el.innerHTML='<p class="empty">まだ本がありません。下で検索して追加してください。</p>';return}
+  el.innerHTML='<p class="hint">'+(mo.books.length>1?'今月のベストを1冊選んでください。':'1冊だけなら、その本が今月のベストになります。')+'</p><ul class="books">'+
+    mo.books.map(function(b){var on=b.id===c;return '<li class="'+(on?'is-best':'')+'"><label class="bk"><input type="radio" name="best" value="'+b.id+'"'+(on?' checked':'')+'><span class="th">'+coverHTML(b)+'</span><span class="meta"><b>'+esc(b.title)+'</b>'+(b.author?'<i>'+esc(b.author)+'</i>':'')+(on?'<em>今月のベスト</em>':'')+'</span></label><button type="button" class="del'+(pendingDel===b.id?' arm':'')+'" data-act="del" data-id="'+b.id+'">'+(pendingDel===b.id?'削除する':'削除')+'</button></li>'}).join('')+'</ul>';
+}
+function updatePrev(){
+  var p=$('#prev');if(!p)return;
+  var t=$('#f-title').value,a=$('#f-author').value;
+  if(draft.loading){p.innerHTML='<span class="loading">表紙を読み込み中…</span>';return}
+  p.innerHTML=(t||draft.cover)?coverHTML({title:t||' ',author:a,cover:draft.cover}):'';
+  var cc=$('#clearcover');if(cc)cc.hidden=!draft.cover;
+}
+function setCoverFromURL(url){
+  draft.loading=true;updatePrev();var btn=$('#addbtn');if(btn)btn.disabled=true;var token=draft.token=Math.random();
+  urlToCover(url).then(function(c){if(draft.token!==token)return;draft.cover=c;draft.loading=false;if(btn)btn.disabled=false;updatePrev()});
+}
+function roundName(n){
+  if(n==='final')return '年間決勝';
+  var h=+n[1],k=n[2],half=h?'下半期':'上半期';
+  if(k==='a'||k==='b'||k==='c'){var b=h*6+{a:0,b:2,c:4}[k];return half+' 1回戦 · '+(b+1)+'月 vs '+(b+2)+'月'}
+  return half+(k==='d'?' 2回戦':' 決勝');
+}
+function openMatch(n){
+  var p=parts(n);if(!p[0]||!p[1])return;var w=winner(n);
+  function card(id){var r=bookById(id);return '<button class="pick'+(w===id?' won':'')+'" data-act="pick" data-n="'+n+'" data-id="'+id+'"><span class="pc">'+coverHTML(r.book)+'</span><span class="pa">'+EN[r.month]+'</span><span class="pt">'+esc(r.book.title)+'</span></button>'}
+  openSheet(head(roundName(n),n==='final'?year+'年の1冊はどっち？':'勝ち上がるのはどっち？')+
+    '<div class="vs">'+card(p[0])+'<span class="vsmark">VS</span>'+card(p[1])+'</div>'+
+    (w?'<button class="ghost" data-act="unpick" data-n="'+n+'">この対戦を未決定に戻す</button>':'<p class="note">表紙をタップすると勝者が決まります。</p>'));
+}
+
+/* ---------- share image ---------- */
+var INK='#1b2130',MUTED='#646d82',LINE='#8f98ab',MARK='#ffe04a',ACCENT='#2f43c8';
+function wrapText(x,text,maxW){
+  var toks=String(text).match(/[　-ヿ㐀-鿿＀-￯]|[^\s　-ヿ㐀-鿿＀-￯]+|\s+/g)||[],lines=[],cur='';
+  toks.forEach(function(t){
+    if(x.measureText(cur+t).width<=maxW){cur+=t;return}
+    if(cur.trim())lines.push(cur.trim());
+    cur=/^\s+$/.test(t)?'':t;
+    while(cur.length>1&&x.measureText(cur).width>maxW){var i=cur.length;while(i>1&&x.measureText(cur.slice(0,i)).width>maxW)i--;lines.push(cur.slice(0,i));cur=cur.slice(i)}
+  });
+  if(cur.trim())lines.push(cur.trim());return lines;
+}
+function clampLines(x,lines,n,maxW){if(lines.length<=n)return lines;var l=lines.slice(0,n),last=l[n-1];while(last.length>1&&x.measureText(last+'…').width>maxW)last=last.slice(0,-1);l[n-1]=last+'…';return l}
+function loadImg(src){
+  return new Promise(function(res){
+    if(!src)return res(null);
+    var img=new Image();
+    if(!/^data:/.test(src)){img.crossOrigin='anonymous';src=proxied(src)}
+    img.onload=function(){res(img)};img.onerror=function(){res(null)};img.src=src;
+  });
+}
+function drawCover(x,b,rx,ry,rw,rh,img){
+  x.save();x.beginPath();x.rect(rx,ry,rw,rh);x.clip();
+  if(img){var s=Math.max(rw/img.width,rh/img.height),w=img.width*s,h=img.height*s;x.fillStyle='#fff';x.fillRect(rx,ry,rw,rh);x.drawImage(img,rx+(rw-w)/2,ry+(rh-h)/2,w,h)}
+  else{
+    x.fillStyle='hsl('+hue(b.title)+' 42% 35%)';x.fillRect(rx,ry,rw,rh);
+    x.fillStyle='rgba(0,0,0,.18)';x.fillRect(rx,ry,rw*0.05,rh);
+    var fs=rw*0.13,pad=rw*0.12,mw=rw-pad-rw*0.08;
+    x.fillStyle='#fff';x.textBaseline='top';x.font='700 '+fs+'px "Zen Kaku Gothic New",sans-serif';
+    clampLines(x,wrapText(x,b.title,mw),Math.floor((rh*0.72)/(fs*1.25)),mw).forEach(function(t,i){x.fillText(t,rx+pad,ry+rh*0.08+i*fs*1.25)});
+    if(b.author){x.font='400 '+(rw*0.09)+'px "Zen Kaku Gothic New",sans-serif';x.globalAlpha=.85;x.textBaseline='bottom';x.fillText(clampLines(x,wrapText(x,b.author,mw),1,mw)[0]||'',rx+pad,ry+rh*0.94);x.globalAlpha=1}
+  }
+  x.restore();
+}
+function makeImage(){
+  var fonts=['500 40px "Bricolage Grotesque"','700 40px "Bricolage Grotesque"','500 30px "DM Mono"','700 30px "Zen Kaku Gothic New"','400 30px "Zen Kaku Gothic New"'];
+  var L=layout();
+  return Promise.all(fonts.map(function(f){return document.fonts.load(f).catch(function(){})})).then(function(){
+    var ids={};L.forEach(function(s){if(s.book)ids[s.book]=1});
+    var keys=Object.keys(ids);
+    return Promise.all(keys.map(function(id){return loadImg(bookById(id).book.cover)})).then(function(imgs){var m={};keys.forEach(function(k,i){m[k]=imgs[i]});return m});
+  }).then(function(imgs){
+    var S=1.2,PAD=30,W=Math.round(1000*S)+PAD*2,FOOT=96,H=Math.round(TOTAL*S)+PAD*2+FOOT;
+    var c=document.createElement('canvas');c.width=W;c.height=H;var x=c.getContext('2d');
+    x.fillStyle='#f6f7fa';x.fillRect(0,0,W,H);
+    x.save();x.translate(PAD,PAD);x.scale(S,S);
+    x.strokeStyle=LINE;x.lineWidth=4.5;x.lineCap='round';x.setLineDash([0.1,10]);
+    LINES.forEach(function(l){x.beginPath();x.moveTo(l[0],l[1]);x.lineTo(l[2],l[3]);x.stroke()});
+    x.setLineDash([]);
+    var sp=new Path2D(scallopD(BEST.x,BEST.y,BEST.w,BEST.h));x.fillStyle='#fff';x.fill(sp);x.strokeStyle=INK;x.lineWidth=3;x.stroke(sp);
+    L.forEach(function(s){
+      var b=s.book&&bookById(s.book).book;
+      if(s.kind==='best'){
+        var ix=s.x+s.w*0.06,iy=s.y+s.h*0.06,iw=s.w*0.88,ih=s.h*0.88;
+        if(b){drawCover(x,b,ix,iy,iw,ih,imgs[s.book]);
+          x.save();x.translate(s.x+s.w*0.86,s.y+s.h*0.97);x.rotate(9*Math.PI/180);
+          x.font='700 34px "Bricolage Grotesque",sans-serif';var tw=x.measureText('BEST').width;
+          x.fillStyle=INK;x.fillRect(-tw/2-14,-20,tw+28,48);x.fillStyle=MARK;x.fillRect(-tw/2-14,-22,tw+28,46);
+          x.fillStyle=INK;x.textAlign='center';x.textBaseline='middle';x.fillText('BEST',0,1);x.restore();
+        }else{x.fillStyle=MUTED;x.font='500 60px "Bricolage Grotesque",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('?',s.x+s.w/2,s.y+s.h/2);x.textAlign='left'}
+        return;
+      }
+      if(b)drawCover(x,b,s.x,s.y,s.w,s.h,imgs[s.book]);
+      else{x.fillStyle='#fff';x.fillRect(s.x,s.y,s.w,s.h)}
+      x.strokeStyle=(!b&&s.idle)?'#c3c8d3':INK;x.lineWidth=2.5;x.strokeRect(s.x,s.y,s.w,s.h);
+      if(s.kind==='month'){x.fillStyle=INK;x.font='500 31px "DM Mono",monospace';x.textAlign='center';x.textBaseline='middle';x.fillText(s.label,s.lx,s.ly);x.textAlign='left'}
+    });
+    x.fillStyle=INK;x.textAlign='center';x.font='500 43px "Bricolage Grotesque",sans-serif';x.textBaseline='alphabetic';
+    x.fillText('Best book',800,676);x.fillText('of '+year,800,1200);x.textAlign='left';
+    x.font='500 66px "Bricolage Grotesque",sans-serif';['Favorite','books of','the year'].forEach(function(t,i){x.fillText(t,28,778+i*71)});
+    var champ=winner('final');
+    if(champ){
+      var cb=bookById(champ).book;x.font='700 32px "Zen Kaku Gothic New",sans-serif';
+      clampLines(x,wrapText(x,'『'+cb.title+'』',390),3,390).forEach(function(t,i){var y=990+i*48,w=x.measureText(t).width;x.fillStyle=MARK;x.fillRect(28,y+4,w,20);x.fillStyle=INK;x.fillText(t,28,y+18)});
+    }else{x.fillStyle=MUTED;x.font='500 26px "Zen Kaku Gothic New",sans-serif';x.fillText('トーナメント進行中',30,990)}
+    x.restore();
+    var fy=H-FOOT/2-6;x.fillStyle=LINE;x.fillRect(PAD,H-FOOT-6,W-PAD*2,1.5);
+    x.fillStyle=INK;x.font='700 28px "Zen Kaku Gothic New",sans-serif';x.textBaseline='middle';x.fillText('今年の1冊トーナメント',PAD,fy);
+    x.fillStyle=MUTED;x.font='500 22px "DM Mono",monospace';x.textAlign='right';x.fillText(siteURL().replace(/^https?:\/\//,'').replace(/\/$/,''),W-PAD,fy);
+    return new Promise(function(r){c.toBlob(r,'image/png')});
+  });
+}
+function shareText(){
+  var champ=winner('final');
+  if(champ)return year+'年の1冊は『'+bookById(champ).book.title+'』。月ごとのベスト本をトーナメントで戦わせて決めました。\n'+HASHTAG;
+  return year+'年の読書トーナメント、途中経過です。\n'+HASHTAG;
+}
+function openShare(){
+  openSheet(head('SHARE','画像にしてシェア')+'<div class="shot" id="shot"><p class="note">画像を作っています…</p></div><div class="row" id="sharerow" hidden></div><p class="note" id="sharenote"></p>');
+  makeImage().then(function(blob){
+    if(!$('#shot'))return;
+    if(!blob)throw 0;
+    shareURL=URL.createObjectURL(blob);
+    shareFile=new File([blob],'favorite-books-'+year+'.png',{type:'image/png'});
+    $('#shot').innerHTML='<img src="'+shareURL+'" alt="'+year+'年の読書トーナメントの画像">';
+    var canFile=!!(navigator.canShare&&navigator.canShare({files:[shareFile]}));
+    var row=$('#sharerow');row.hidden=false;
+    row.innerHTML=(canFile?'<button class="primary" data-act="share-native">シェアする（Xを選択）</button>':'<button class="primary" data-act="share-x">保存してXに投稿</button>')+
+      '<a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>'+(canFile?'<button class="ghost" data-act="share-x">Xの投稿画面を開く</button>':'');
+    $('#sharenote').textContent=canFile?'シェア先で X を選ぶと、画像つきで投稿画面が開きます。':'画像を保存したあと X の投稿画面が開くので、保存した画像を添付して投稿してください。';
+  }).catch(function(){var s=$('#shot');if(s)s.innerHTML='<p class="note">画像を作れませんでした。もう一度お試しください。</p>'});
+}
+function openXIntent(){
+  var u='https://twitter.com/intent/tweet?text='+encodeURIComponent(shareText())+'&url='+encodeURIComponent(siteURL());
+  window.open(u,'_blank','noopener');
+}
+
+/* ---------- backup ---------- */
+function downloadBlob(blob,name){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}
+function backup(){
+  var data={app:'book-tournament',v:1,savedAt:new Date().toISOString(),years:{}};
+  storedYears().forEach(function(y){try{data.years[y]=JSON.parse(lsGet(key(y)))}catch(e){}});
+  data.years[year]=state;
+  downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),'book-tournament-backup.json');
+  toast('バックアップを保存しました');
+}
+function restore(file){
+  file.text().then(function(t){
+    var d=JSON.parse(t);if(!d||d.app!=='book-tournament'||!d.years)throw 0;
+    Object.keys(d.years).forEach(function(y){var s=d.years[y];if(s&&s.months)lsSet(key(y),JSON.stringify(s))});
+    state=loadYear(year);render();toast('バックアップから復元しました');
+  }).catch(function(){toast('このファイルは読み込めませんでした')});
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-act]');
+  if(!t){if(e.target.id==='scrim')closeSheet();return}
+  var a=t.dataset.act;
+  if(a==='month')openMonth(+t.dataset.m);
+  else if(a==='match')openMatch(t.dataset.n);
+  else if(a==='close')closeSheet();
+  else if(a==='pick'){var n=t.dataset.n;state.picks[n]=t.dataset.id;commit();closeSheet();flash(n)}
+  else if(a==='unpick'){delete state.picks[t.dataset.n];commit();closeSheet()}
+  else if(a==='del'){
+    var id=t.dataset.id;if(pendingDel!==id){pendingDel=id;renderList();return}
+    var mo=state.months[curM];mo.books=mo.books.filter(function(b){return b.id!==id});if(mo.best===id)mo.best=null;pendingDel=null;commit();renderList();
+  }
+  else if(a==='choose'){var r=lastResults[+t.dataset.i];if(!r)return;$('#f-title').value=r.title;$('#f-author').value=r.author;draft.cover='';if(r.cover)setCoverFromURL(r.cover);else updatePrev();$('#addform').scrollIntoView({behavior:'smooth',block:'center'})}
+  else if(a==='clearcover'){draft.cover='';draft.token=null;draft.loading=false;$('#addbtn').disabled=false;updatePrev()}
+  else if(a==='share')openShare();
+  else if(a==='share-native'){navigator.share({files:[shareFile],text:shareText()+'\n'+siteURL()}).catch(function(){})}
+  else if(a==='share-x'){var dl=$('#dl');if(dl&&!(navigator.canShare&&shareFile&&navigator.canShare({files:[shareFile]})))dl.click();openXIntent()}
+  else if(a==='backup')backup();
+  else if(a==='reset'){resetArm=true;render()}
+  else if(a==='reset-no'){resetArm=false;render()}
+  else if(a==='reset-yes'){resetArm=false;state=blank(year);commit();toast(year+'年をリセットしました')}
+});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.name==='best'&&curM!=null){state.months[curM].best=t.value;commit();renderList()}
+  else if(t.id==='f-file'&&t.files&&t.files[0]){draft.token=null;blobToCover(t.files[0]).then(function(u){draft.cover=u;draft.loading=false;updatePrev()},function(){toast('この画像は読み込めませんでした')});t.value=''}
+  else if(t.id==='f-restore'&&t.files&&t.files[0]){restore(t.files[0]);t.value=''}
+  else if(t.id==='yearsel'){year=+t.value;state=loadYear(year);lsSet('fbty-year',String(year));resetArm=false;render()}
+});
+document.addEventListener('input',function(e){if(e.target.id==='f-title'||e.target.id==='f-author')updatePrev()});
+document.addEventListener('submit',function(e){
+  if(e.target.id==='searchform'){e.preventDefault();doSearch();return}
+  if(e.target.id!=='addform')return;e.preventDefault();
+  if(draft.loading)return;
+  var ti=$('#f-title').value.trim();if(!ti){$('#f-title').focus();return}
+  state.months[curM].books.push({id:uid(),title:ti,author:$('#f-author').value.trim(),cover:draft.cover||''});
+  draft={};e.target.reset();$('#results').innerHTML='';$('#f-q').value='';commit();renderList();updatePrev();
+  toast((curM+1)+'月に追加しました');
+});
+document.addEventListener('paste',function(e){
+  if(curM==null)return;var f=e.clipboardData&&e.clipboardData.files&&e.clipboardData.files[0];
+  if(f&&/^image\//.test(f.type)){e.preventDefault();blobToCover(f).then(function(u){draft.cover=u;updatePrev()},function(){})}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#scrim'))closeSheet()});
+
+render();
+})();
+</script>
+</body>
+</html>
