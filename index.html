@@ -688,7 +688,7 @@ function openShare(){
     var canFile=!!(navigator.canShare&&navigator.canShare({files:[shareFile]}));
     var row=$('#sharerow');row.hidden=false;
     row.innerHTML=canFile
-      ?'<button class="primary" data-act="share-native" style="flex:1 1 100%;min-height:48px;font-size:15px">画像つきでXに投稿</button><button class="ghost" data-act="save-photo">写真に保存</button><a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a>'
+      ?'<span style="flex:1 1 100%;font-weight:700;font-size:13px">Xのアプリを持っている場合</span><button class="primary" data-act="share-native" style="flex:1 1 100%;min-height:48px;font-size:15px">画像つきでXに投稿</button><button class="ghost" data-act="save-photo">写真に保存</button><a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a>'
       :'<button class="primary" data-act="share-x">画像を保存してXを開く</button><a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>';
     $('#sharenote').innerHTML=canFile
       ?'ボタンを押すと共有メニューが開くので、<b>X</b> を選んでください。画像と文章が入った状態で投稿画面が開きます。<br>「写真に保存」は、共有メニューの「画像を保存」で写真アプリに入ります。'+
