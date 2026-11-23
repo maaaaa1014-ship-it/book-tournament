@@ -506,7 +506,7 @@ function render(){
   });
   o+='<span class="blabel" style="'+pos(640,620,320,62)+'">Best book</span><span class="blabel below" style="'+pos(640,1162,320,50)+'">of '+year+'</span>';
   o+='<p class="ttl" style="'+pos(28,720,400)+'">Favorite<br>books of<br>the year<span class="sub">毎月のベストで勝ち抜き戦</span>'+(cb?'<span class="champwrap"><span class="champ">『'+esc(cb.title)+'』</span></span>':'')+'</p></div>';
-  o+='<div class="sharebar"><button class="primary" data-act="share">画像にしてXでシェア</button><p class="fine">途中経過でもシェアできます。</p></div>';
+  o+='<div class="sharebar"><button class="primary" data-act="share">画像にしてXでシェア</button><p class="fine">シェアされるのは画像だけです。記録はこの端末のブラウザに保存されているので、URLを送っても相手にはあなたのトーナメントは見えません（相手には空の表が開きます）。途中経過でもシェアできます。</p></div>';
   o+='<section class="how"><h3>使い方</h3><ol><li>月の枠をタップして、読んだ本を検索して追加します。2冊以上なら「今月のベスト」を1冊選びます。</li><li>隣り合う月どうしで対戦。青く光る枠をタップして勝者を選びます。5・6月と11・12月の勝者はシードで1試合少なく進みます。</li><li>上半期と下半期の勝者で決勝。勝った本が今年の1冊です。</li></ol>'+
     '<p class="fine">データはこのブラウザの中だけに保存され、サーバーには送られません。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存してください。</p>'+
     '<div class="row"><button class="ghost" data-act="backup">バックアップを保存</button><label class="ghost" for="f-restore">バックアップから復元<input type="file" id="f-restore" accept="application/json,.json" hidden></label></div>'+
