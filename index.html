@@ -183,13 +183,21 @@ input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transp
 .pick .pt{font:700 14px/1.4 var(--f-body);overflow-wrap:anywhere}
 .pick .pa{font:500 11px/1 var(--f-mono);color:var(--muted);letter-spacing:.06em}
 
-.noapp{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink)}
-.noapp summary{cursor:pointer;font-weight:700;font-size:13px}
-.noapp ol{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.shareopts{flex:1 1 100%;min-width:0;display:flex;flex-direction:column;gap:10px}
+.sharebtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:64px;padding:10px 14px;border-radius:12px;cursor:pointer;text-align:center;font:inherit;list-style:none}
+.sharebtn::-webkit-details-marker{display:none}
+.sharebtn small{font-size:12px;font-weight:500;opacity:.85}
+.sharebtn b{font-size:16px;font-weight:700}
+.sharebtn.app{background:var(--accent);color:var(--accent-ink);border:none}
+.sharebtn.web{background:var(--card);color:var(--ink);border:2px solid var(--ink)}
+.noapp[open] .sharebtn.web{border-radius:12px 12px 0 0}
+.noapp ol{list-style:none;margin:0;padding:12px 14px;display:flex;flex-direction:column;gap:12px;border:2px solid var(--ink);border-top:none;border-radius:0 0 12px 12px}
 .noapp li{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .noapp li span{font-size:12px;color:var(--muted)}
-.shot{display:flex;justify-content:center;background:color-mix(in srgb,var(--line) 18%,transparent);border-radius:10px;padding:10px;min-height:120px;align-items:center}
-.shot img{max-height:56vh;width:auto;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.15)}
+.saveonly{align-self:center;background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px;cursor:pointer;min-height:36px}
+.sheet>*{flex-shrink:0}
+.shot{display:block;text-align:center;background:color-mix(in srgb,var(--line) 18%,transparent);border-radius:10px;padding:10px}
+.shot img{display:block;margin:0 auto;max-width:100%;max-height:52vh;width:auto;height:auto;object-fit:contain;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.15)}
 
 .toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:40;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:99px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
 
@@ -688,14 +696,17 @@ function openShare(){
     var canFile=!!(navigator.canShare&&navigator.canShare({files:[shareFile]}));
     var row=$('#sharerow');row.hidden=false;
     row.innerHTML=canFile
-      ?'<span style="flex:1 1 100%;font-weight:700;font-size:13px">Xのアプリを持っている場合</span><button class="primary" data-act="share-native" style="flex:1 1 100%;min-height:48px;font-size:15px">画像つきでXに投稿</button><button class="ghost" data-act="save-photo">写真に保存</button><a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a>'
+      ?'<div class="shareopts">'+
+        '<button class="sharebtn app" data-act="share-native"><small>Xのアプリを持っている人</small><b>画像つきでXに投稿</b></button>'+
+        '<details class="noapp"><summary class="sharebtn web"><small>Xのアプリがない人</small><b>保存してブラウザで投稿 ▾</b></summary><ol>'+
+        '<li><button class="ghost" data-act="save-photo">① 画像を写真に保存</button><span>共有メニューの「画像を保存」を選びます。</span></li>'+
+        '<li><button class="ghost" data-act="share-x">② ブラウザでXの投稿画面を開く</button><span>文章とURLが入った状態で開きます。</span></li>'+
+        '<li><span>③ 投稿画面の画像アイコンをタップして、保存した画像を選んで投稿します。</span></li></ol></details>'+
+        '<button class="saveonly" data-act="save-photo">投稿せずに写真に保存だけする</button>'+
+        '<a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a></div>'
       :'<button class="primary" data-act="share-x">画像を保存してXを開く</button><a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>';
     $('#sharenote').innerHTML=canFile
-      ?'ボタンを押すと共有メニューが開くので、<b>X</b> を選んでください。画像と文章が入った状態で投稿画面が開きます。<br>「写真に保存」は、共有メニューの「画像を保存」で写真アプリに入ります。'+
-       '<details class="noapp"><summary>Xのアプリが入っていない場合</summary><ol>'+
-       '<li><button class="ghost" data-act="save-photo">① 画像を写真に保存</button><span>共有メニューの「画像を保存」を選びます。</span></li>'+
-       '<li><button class="ghost" data-act="share-x">② ブラウザでXの投稿画面を開く</button><span>文章とURLが入った状態で開きます。</span></li>'+
-       '<li><span>③ 投稿画面の画像アイコンをタップして、保存した画像を選んで投稿します。</span></li></ol></details>'
+      ?'アプリがある人は、ボタンを押して開いたメニューで <b>X</b> を選ぶと、画像と文章が入った投稿画面が開きます。'
       :'パソコンのブラウザからは、Xの投稿に画像を自動で付けられません。画像を保存したあと X の投稿画面が開くので、保存した画像をドラッグして添付してください。';
   }).catch(function(){var s=$('#shot');if(s)s.innerHTML='<p class="note">画像を作れませんでした。もう一度お試しください。</p>'});
 }
