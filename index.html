@@ -183,6 +183,11 @@ input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transp
 .pick .pt{font:700 14px/1.4 var(--f-body);overflow-wrap:anywhere}
 .pick .pa{font:500 11px/1 var(--f-mono);color:var(--muted);letter-spacing:.06em}
 
+.noapp{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink)}
+.noapp summary{cursor:pointer;font-weight:700;font-size:13px}
+.noapp ol{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.noapp li{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.noapp li span{font-size:12px;color:var(--muted)}
 .shot{display:flex;justify-content:center;background:color-mix(in srgb,var(--line) 18%,transparent);border-radius:10px;padding:10px;min-height:120px;align-items:center}
 .shot img{max-height:56vh;width:auto;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.15)}
 
@@ -673,7 +678,7 @@ function shareText(){
   return year+'年の読書トーナメント、途中経過です。\n'+HASHTAG;
 }
 function openShare(){
-  openSheet(head('SHARE','画像にしてシェア')+'<div class="shot" id="shot"><p class="note">画像を作っています…</p></div><div class="row" id="sharerow" hidden></div><p class="note" id="sharenote"></p><div class="donebar"><button class="done" data-act="close">閉じる</button></div>');
+  openSheet(head('SHARE','画像にしてシェア')+'<div class="shot" id="shot"><p class="note">画像を作っています…</p></div><div class="row" id="sharerow" hidden></div><div class="note" id="sharenote"></div><div class="donebar"><button class="done" data-act="close">閉じる</button></div>');
   makeImage().then(function(blob){
     if(!$('#shot'))return;
     if(!blob)throw 0;
@@ -686,7 +691,11 @@ function openShare(){
       ?'<button class="primary" data-act="share-native" style="flex:1 1 100%;min-height:48px;font-size:15px">画像つきでXに投稿</button><button class="ghost" data-act="save-photo">写真に保存</button><a id="dl" href="'+shareURL+'" download="favorite-books-'+year+'.png" hidden></a>'
       :'<button class="primary" data-act="share-x">画像を保存してXを開く</button><a class="ghost" href="'+shareURL+'" download="favorite-books-'+year+'.png" id="dl">画像を保存</a>';
     $('#sharenote').innerHTML=canFile
-      ?'ボタンを押すと共有メニューが開くので、<b>X</b> を選んでください。画像と文章が入った状態で投稿画面が開きます（Xのアプリが必要です。メニューにXがないときは「その他」から追加できます）。<br>「写真に保存」は、共有メニューの「画像を保存」で写真アプリに入ります。'
+      ?'ボタンを押すと共有メニューが開くので、<b>X</b> を選んでください。画像と文章が入った状態で投稿画面が開きます。<br>「写真に保存」は、共有メニューの「画像を保存」で写真アプリに入ります。'+
+       '<details class="noapp"><summary>Xのアプリが入っていない場合</summary><ol>'+
+       '<li><button class="ghost" data-act="save-photo">① 画像を写真に保存</button><span>共有メニューの「画像を保存」を選びます。</span></li>'+
+       '<li><button class="ghost" data-act="share-x">② ブラウザでXの投稿画面を開く</button><span>文章とURLが入った状態で開きます。</span></li>'+
+       '<li><span>③ 投稿画面の画像アイコンをタップして、保存した画像を選んで投稿します。</span></li></ol></details>'
       :'パソコンのブラウザからは、Xの投稿に画像を自動で付けられません。画像を保存したあと X の投稿画面が開くので、保存した画像をドラッグして添付してください。';
   }).catch(function(){var s=$('#shot');if(s)s.innerHTML='<p class="note">画像を作れませんでした。もう一度お試しください。</p>'});
 }
